@@ -12,8 +12,10 @@ import {
 } from '../lib/article-metadata';
 import { formatRevisionDate } from '../lib/format-date.js';
 import { buildSubnets } from '../../scripts/subnets.js';
+import { buildMostLinkedPages } from '../../scripts/most-linked.js';
 import slugMap from '../../public/data/slugmap.json';
 import categoriesIndex from '../../public/data/categories.json';
+import backlinks from '../../public/data/backlinks.json';
 
 // Read public/data/slugmap.json and categories.json for landing-page directory
 // metadata — the same artifacts allpages.json (#1240) and categories.json
@@ -79,6 +81,18 @@ for (const change of allRecentChanges(titleBySlug, 0)) {
   recentlyUpdated.push(change);
   if (recentlyUpdated.length >= 6) break;
 }
+
+// Most referenced articles: the wiki's most-linked concepts, ranked by how many
+// other published articles link to them. The curated "Core Articles" above is
+// editor-picked; this is its data-driven counterpart, surfacing the pages the
+// wiki itself treats as central. Reuses the SAME buildMostLinkedPages() source as
+// Special:MostLinkedPages and mostlinkedpages.json, so the homepage can never
+// disagree with them on ranking. Excludes the Core Articles and featured subnets
+// already shown above so no title appears twice on the page. Refs #521.
+const featuredSubnetSlugs = new Set(featuredSubnets.map((subnet) => subnet.slug));
+const mostReferenced = buildMostLinkedPages({ backlinks, titleBySlug })
+  .filter((entry) => !featuredSlugSet.has(entry.slug) && !featuredSubnetSlugs.has(entry.slug))
+  .slice(0, 6);
 
 const alphaGroups = new Map<string, PageEntry[]>();
 for (const page of sortedPages) {
@@ -608,6 +622,23 @@ const initialLetter = alphabet[0] ?? '#';
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {mostReferenced.length > 0 && (
+        <section class="home-section">
+          <div class="section-heading">
+            <h2>Most Referenced</h2>
+            <a href="/wiki/special/mostlinkedpages">All linked pages</a>
+          </div>
+          <div class="article-grid">
+            {mostReferenced.map((entry) => (
+              <a class="article-card" href={`/wiki/${entry.slug}/`}>
+                <strong>{entry.title}</strong>
+                <span>Referenced by {entry.count} article{entry.count !== 1 ? 's' : ''}</span>
+              </a>
+            ))}
+          </div>
         </section>
       )}
 
